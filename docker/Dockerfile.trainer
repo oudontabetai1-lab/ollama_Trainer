@@ -1,0 +1,47 @@
+# ─── Pentest LLM Trainer — CUDA-enabled container ───────────
+# Base: PyTorch + CUDA for GPU training
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+
+LABEL description="Fine-tuning environment for penetration testing LLM"
+LABEL maintainer="security-research"
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    wget \
+    build-essential \
+    cmake \
+    ninja-build \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install llama.cpp for GGUF conversion
+RUN git clone --depth=1 https://github.com/ggerganov/llama.cpp /opt/llama.cpp && \
+    cd /opt/llama.cpp && \
+    cmake -B build -DGGML_CUDA=ON && \
+    cmake --build build --config Release -j$(nproc) && \
+    cp build/bin/llama-quantize /usr/local/bin/ && \
+    echo "llama.cpp built successfully"
+
+# Python dependencies
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Working directory
+WORKDIR /workspace
+
+# Copy project
+COPY . /workspace/
+
+# Create output directories
+RUN mkdir -p /workspace/output/{models,checkpoints,logs,gguf}
+
+# Environment
+ENV PYTHONPATH=/workspace
+ENV TRANSFORMERS_CACHE=/workspace/.cache/transformers
+ENV HF_HOME=/workspace/.cache/huggingface
+ENV CUDA_VISIBLE_DEVICES=0
+
+# Default command: run the full pipeline
+CMD ["bash", "scripts/pipeline.sh"]

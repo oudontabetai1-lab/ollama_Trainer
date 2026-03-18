@@ -1,0 +1,32 @@
+# Training outputs
+output/
+*.gguf
+*.bin
+*.safetensors
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+
+# HuggingFace cache
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_tmp
+
+# Datasets (raw/processed may contain sensitive data)
+datasets/raw/
+datasets/processed/
+datasets/synthetic/pentest_dataset.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

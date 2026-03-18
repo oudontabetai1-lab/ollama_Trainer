@@ -1,0 +1,65 @@
+# Dataset Configuration for Pentest LLM Training
+
+categories:
+  xss:
+    weight: 0.35
+    subtypes:
+      - reflected_xss
+      - stored_xss
+      - dom_xss
+      - blind_xss
+      - mutation_xss
+    contexts:
+      - html_body
+      - html_attribute
+      - javascript_context
+      - url_parameter
+      - json_response
+
+  sqli:
+    weight: 0.35
+    subtypes:
+      - error_based
+      - union_based
+      - blind_boolean
+      - blind_time
+      - out_of_band
+      - second_order
+    databases:
+      - mysql
+      - postgresql
+      - mssql
+      - sqlite
+      - oracle
+
+  osi:
+    weight: 0.30
+    subtypes:
+      - command_injection
+      - argument_injection
+      - path_traversal
+      - ldap_injection
+      - xml_injection
+      - header_injection
+    platforms:
+      - linux
+      - windows
+
+# Dataset format: instruction-following (Alpaca-style)
+format: "alpaca"
+# Alternatives: "chatml", "llama3", "mistral"
+
+# Augmentation settings
+augmentation:
+  enabled: true
+  paraphrase_ratio: 0.2
+  encoding_variants: true   # Generate URL-encoded, HTML-encoded variants
+  evasion_techniques: true  # WAF bypass variants
+
+# Quality filters
+quality:
+  min_instruction_length: 20
+  min_response_length: 50
+  max_response_length: 2000
+  require_code_block: false
+  filter_duplicates: true

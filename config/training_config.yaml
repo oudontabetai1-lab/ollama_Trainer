@@ -1,0 +1,61 @@
+# Ollama Fine-tuning Configuration
+# For penetration testing LLM (XSS, SQLi, OS Injection)
+
+base_model:
+  name: "llama3.2"          # Base model to fine-tune
+  size: "3b"                 # Model size: 1b, 3b, 7b, 13b, 70b
+  quantization: "q4_k_m"    # Quantization method
+
+training:
+  method: "lora"             # Training method: lora, qlora, full
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+
+  # Hyperparameters
+  learning_rate: 2.0e-4
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  max_seq_length: 2048
+  warmup_ratio: 0.03
+  lr_scheduler: "cosine"
+  weight_decay: 0.01
+
+  # Memory optimization
+  fp16: true
+  gradient_checkpointing: true
+  dataloader_num_workers: 2
+
+dataset:
+  train_split: 0.85
+  val_split: 0.10
+  test_split: 0.05
+  seed: 42
+  max_samples: null         # null = use all samples
+
+output:
+  model_dir: "./output/models"
+  checkpoint_dir: "./output/checkpoints"
+  log_dir: "./output/logs"
+  save_steps: 100
+  eval_steps: 50
+  logging_steps: 10
+
+# Modelfile settings for Ollama
+modelfile:
+  system_prompt: |
+    You are an expert penetration tester and security researcher with deep knowledge
+    of web application vulnerabilities. You help authorized security professionals
+    identify and understand vulnerabilities including XSS, SQL Injection, and OS Injection.
+    You operate strictly within authorized testing environments only.
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  repeat_penalty: 1.1
+  context_length: 4096

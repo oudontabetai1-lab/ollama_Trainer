@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  # ─── Fine-tuning Trainer (GPU) ──────────────────────────────
+  trainer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.trainer
+    image: pentest-llm-trainer:latest
+    container_name: pentest_trainer
+    runtime: nvidia          # Requires nvidia-container-toolkit
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - TRANSFORMERS_CACHE=/workspace/.cache/transformers
+      - HF_HOME=/workspace/.cache/huggingface
+      # Optional: HuggingFace token for gated models
+      # - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - ..:/workspace
+      - trainer_cache:/workspace/.cache
+    command: bash scripts/pipeline.sh
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ─── Ollama Server ──────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pentest_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ../output/gguf:/models   # Mount GGUF outputs
+    environment:
+      - OLLAMA_MODELS=/root/.ollama
+    # Uncomment for GPU support:
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    restart: unless-stopped
+
+  # ─── Jupyter Notebook (for exploration) ─────────────────────
+  notebook:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.trainer
+    image: pentest-llm-trainer:latest
+    container_name: pentest_notebook
+    ports:
+      - "8888:8888"
+    volumes:
+      - ..:/workspace
+      - trainer_cache:/workspace/.cache
+    command: >
+      jupyter notebook
+        --ip=0.0.0.0
+        --port=8888
+        --no-browser
+        --allow-root
+        --notebook-dir=/workspace
+        --NotebookApp.token=''
+        --NotebookApp.password=''
+    environment:
+      - TRANSFORMERS_CACHE=/workspace/.cache/transformers
+
+volumes:
+  ollama_data:
+  trainer_cache:
