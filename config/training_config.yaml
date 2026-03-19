@@ -2,8 +2,8 @@
 # For penetration testing LLM (XSS, SQLi, OS Injection)
 
 base_model:
-  name: "llama3.2"          # Base model to fine-tune
-  size: "3b"                 # Model size: 1b, 3b, 7b, 13b, 70b
+  name: "qwen2.5-coder"      # Base model to fine-tune
+  size: "3b"                 # Model size: 1b, 3b, 7b
   quantization: "q4_k_m"    # Quantization method
 
 training:
