@@ -3,9 +3,13 @@
 Fine-tuning pipeline for penetration testing LLM using Unsloth/TRL.
 Supports LoRA/QLoRA fine-tuning of models compatible with Ollama.
 
-Requirements:
+Requirements (Linux/GPU — recommended):
     pip install unsloth trl transformers datasets peft bitsandbytes
     # GPU: pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+Requirements (Windows / CPU-only / no Unsloth):
+    pip install trl transformers datasets peft accelerate torch
+    # Unsloth is Linux-only; this script automatically falls back to standard HF stack.
 """
 
 import os
@@ -75,57 +79,167 @@ def format_chatml_prompt(sample: dict) -> list[dict]:
     return sample.get("messages", [])
 
 
+# ─────────────────────────────────────────────────────────────────
+# HuggingFace model ID lookup (Ollama name → HF repo)
+# Unsloth mirrors (4-bit) are used when unsloth is available.
+# Standard repos are the fallback when unsloth is not installed.
+# ─────────────────────────────────────────────────────────────────
+_HF_MODEL_MAP_UNSLOTH = {
+    "llama3.2:3b":      "unsloth/Llama-3.2-3B-Instruct-bnb-4bit",
+    "llama3.2:1b":      "unsloth/Llama-3.2-1B-Instruct-bnb-4bit",
+    "llama3.1:8b":      "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+    "llama3.1:70b":     "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit",
+    "mistral:7b":       "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
+    "qwen2.5:7b":       "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",
+    "qwen2.5:3b":       "unsloth/Qwen2.5-3B-Instruct-bnb-4bit",
+    "qwen2.5-coder:7b": "unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit",
+    "qwen2.5-coder:3b": "unsloth/Qwen2.5-Coder-3B-Instruct-bnb-4bit",
+    "qwen2.5-coder:1b": "unsloth/Qwen2.5-Coder-1.5B-Instruct-bnb-4bit",
+    "gemma2:9b":        "unsloth/gemma-2-9b-it-bnb-4bit",
+    "phi3:3b":          "unsloth/Phi-3-mini-4k-instruct-bnb-4bit",
+}
+
+_HF_MODEL_MAP_STANDARD = {
+    "llama3.2:3b":      "meta-llama/Llama-3.2-3B-Instruct",
+    "llama3.2:1b":      "meta-llama/Llama-3.2-1B-Instruct",
+    "llama3.1:8b":      "meta-llama/Llama-3.1-8B-Instruct",
+    "mistral:7b":       "mistralai/Mistral-7B-Instruct-v0.3",
+    "qwen2.5:7b":       "Qwen/Qwen2.5-7B-Instruct",
+    "qwen2.5:3b":       "Qwen/Qwen2.5-3B-Instruct",
+    "qwen2.5-coder:7b": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "qwen2.5-coder:3b": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "qwen2.5-coder:1b": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "gemma2:9b":        "google/gemma-2-9b-it",
+    "phi3:3b":          "microsoft/Phi-3-mini-4k-instruct",
+}
+
+
+def _resolve_hf_model_id(config: dict, use_unsloth: bool) -> str:
+    """Resolve HuggingFace model ID from config, with sane fallback."""
+    name = config["base_model"]["name"]
+    size = config["base_model"]["size"]
+    key = f"{name}:{size}"
+    table = _HF_MODEL_MAP_UNSLOTH if use_unsloth else _HF_MODEL_MAP_STANDARD
+    if key in table:
+        return table[key]
+    # Generic fallback
+    if use_unsloth:
+        return f"unsloth/{name}-{size}-bnb-4bit"
+    return f"{name}/{size}"
+
+
 def prepare_model_and_tokenizer(config: dict):
-    """Load model with Unsloth for 4-bit QLoRA training."""
+    """
+    Load model and apply LoRA adapters.
+
+    Strategy:
+      1. Try Unsloth (fast, Linux/GPU only, 4-bit QLoRA).
+      2. Fall back to standard HuggingFace PEFT stack
+         (works on Windows, CPU, or when unsloth is not installed).
+    """
+    lora_cfg = config["training"]
+
+    # ── Attempt 1: Unsloth (Linux/GPU) ───────────────────────
     try:
         from unsloth import FastLanguageModel
+        hf_model_id = _resolve_hf_model_id(config, use_unsloth=True)
+        log.info(f"[Unsloth] Loading model: {hf_model_id}")
+
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=hf_model_id,
+            max_seq_length=lora_cfg["max_seq_length"],
+            dtype=None,
+            load_in_4bit=True,
+        )
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=lora_cfg["lora_rank"],
+            target_modules=lora_cfg["target_modules"],
+            lora_alpha=lora_cfg["lora_alpha"],
+            lora_dropout=lora_cfg["lora_dropout"],
+            bias="none",
+            use_gradient_checkpointing="unsloth",
+            random_state=42,
+        )
+        log.info("[Unsloth] Model loaded successfully.")
+        return model, tokenizer
+
     except ImportError:
-        raise ImportError(
-            "Unsloth not installed. Run: pip install unsloth\n"
-            "Or use the Docker environment: docker-compose up trainer"
+        log.warning(
+            "[!] Unsloth not available (Linux+CUDA required). "
+            "Falling back to standard HuggingFace PEFT stack."
         )
 
-    model_name = f"{config['base_model']['name']}:{config['base_model']['size']}"
-    # Map to HuggingFace model ID
-    hf_model_map = {
-        "llama3.2:3b": "unsloth/Llama-3.2-3B-Instruct-bnb-4bit",
-        "llama3.2:1b": "unsloth/Llama-3.2-1B-Instruct-bnb-4bit",
-        "llama3.1:8b": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-        "llama3.1:70b": "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit",
-        "mistral:7b": "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
-        "qwen2.5:7b": "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",
-        "gemma2:9b": "unsloth/gemma-2-9b-it-bnb-4bit",
-    }
+    # ── Fallback 2: Standard HF transformers + PEFT ──────────
+    try:
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+        import torch
+    except ImportError as e:
+        raise ImportError(
+            f"Required package missing: {e}\n"
+            "Run:  pip install transformers peft accelerate torch trl\n"
+            "Windows users: see setup_windows.bat"
+        ) from e
 
-    hf_model_id = hf_model_map.get(model_name, f"unsloth/{config['base_model']['name']}-bnb-4bit")
-    log.info(f"Loading model: {hf_model_id}")
+    hf_model_id = _resolve_hf_model_id(config, use_unsloth=False)
+    log.info(f"[HF PEFT] Loading model: {hf_model_id}")
 
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=hf_model_id,
-        max_seq_length=config["training"]["max_seq_length"],
-        dtype=None,
-        load_in_4bit=True,
+    # Use 4-bit quantization if bitsandbytes is available, else fp16/fp32
+    bnb_config = None
+    try:
+        import bitsandbytes  # noqa: F401
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+        )
+        log.info("[HF PEFT] Using 4-bit quantization (bitsandbytes).")
+    except ImportError:
+        log.warning(
+            "[!] bitsandbytes not available — loading in fp32 (slow/memory-heavy).\n"
+            "    Windows: pip install bitsandbytes-windows  OR  run in WSL/Docker."
+        )
+
+    model = AutoModelForCausalLM.from_pretrained(
+        hf_model_id,
+        quantization_config=bnb_config,
+        device_map="auto",
+        trust_remote_code=True,
     )
+    tokenizer = AutoTokenizer.from_pretrained(hf_model_id, trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
-    # Apply LoRA adapters
-    lora_cfg = config["training"]
-    model = FastLanguageModel.get_peft_model(
-        model,
+    if bnb_config is not None:
+        model = prepare_model_for_kbit_training(model)
+
+    peft_config = LoraConfig(
         r=lora_cfg["lora_rank"],
-        target_modules=lora_cfg["target_modules"],
         lora_alpha=lora_cfg["lora_alpha"],
+        target_modules=lora_cfg["target_modules"],
         lora_dropout=lora_cfg["lora_dropout"],
         bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=42,
+        task_type="CAUSAL_LM",
     )
-
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+    log.info("[HF PEFT] Model loaded successfully.")
     return model, tokenizer
 
 
 def train(config: dict, train_data_path: str, val_data_path: str | None = None):
     """Run the training loop."""
-    from trl import SFTTrainer
+    try:
+        from trl import SFTTrainer
+    except ImportError as e:
+        raise ImportError(
+            "trl is not installed.\n"
+            "Run:  pip install trl>=0.10.0\n"
+            "  or: pip install -r requirements.txt\n"
+            "Windows: run setup_windows.bat first."
+        ) from e
     from transformers import TrainingArguments
 
     model, tokenizer = prepare_model_and_tokenizer(config)

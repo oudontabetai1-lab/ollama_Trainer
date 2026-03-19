@@ -1,15 +1,21 @@
 # ─── Core Training Stack ──────────────────────────────────────
+# GPU (Linux): pip install torch --index-url https://download.pytorch.org/whl/cu121
+# CPU / Windows: pip install torch --index-url https://download.pytorch.org/whl/cpu
 torch>=2.3.0
 transformers>=4.44.0
 datasets>=2.20.0
 peft>=0.12.0
 trl>=0.10.0
 accelerate>=0.33.0
+
+# bitsandbytes: required for 4-bit quantization (QLoRA)
+#   Linux/WSL: pip install bitsandbytes>=0.43.0
+#   Windows native: pip install bitsandbytes  (official Windows support since 0.43)
+#   Fallback: training runs in fp32 if not installed (very slow)
 bitsandbytes>=0.43.0
 
-# Unsloth for fast QLoRA (optional but recommended for speed)
-# Install separately to match your CUDA version:
-# pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+# Unsloth: 2-5x faster training (Linux + CUDA only — skip on Windows)
+# pip install unsloth
 # unsloth
 
 # ─── Utilities ───────────────────────────────────────────────
