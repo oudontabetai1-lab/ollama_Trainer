@@ -36,6 +36,7 @@ class EvalResult:
 # Evaluation Prompts (held-out test cases)
 # ─────────────────────────────────────────────
 EVAL_PROMPTS = [
+    # ── Baseline (original) ──────────────────────────────────────
     {
         "instruction": "What is a reflected XSS attack and how do you test for it?",
         "category": "xss",
@@ -83,6 +84,138 @@ EVAL_PROMPTS = [
         "category": "xss",
         "expected_keywords": ["waf", "bypass", "encode", "filter", "evad"],
         "min_length": 60,
+    },
+    # ── Advanced XSS ─────────────────────────────────────────────
+    {
+        "instruction": "What is mutation XSS (mXSS) and how does it bypass sanitizers like DOMPurify?",
+        "category": "xss",
+        "expected_keywords": ["mutate", "innerhtml", "sanitiz", "dompur", "namespace", "svg", "reparse"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "How do you bypass a Content-Security-Policy that uses strict-dynamic and nonces?",
+        "category": "xss",
+        "expected_keywords": ["csp", "nonce", "strict-dynamic", "bypass", "gadget", "jsonp", "allowlist"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "Explain how prototype pollution leads to XSS and provide detection methodology.",
+        "category": "xss",
+        "expected_keywords": ["prototype", "pollution", "__proto__", "gadget", "merge", "lodash", "xss"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "What are XS-Leaks and how do they enable cross-origin information disclosure?",
+        "category": "xss",
+        "expected_keywords": ["xs-leak", "side channel", "timing", "frame", "cache", "cors", "samesite"],
+        "min_length": 150,
+    },
+    # ── Advanced SQLi ─────────────────────────────────────────────
+    {
+        "instruction": "How do you exploit MongoDB NoSQL injection to bypass authentication?",
+        "category": "sqli",
+        "expected_keywords": ["mongodb", "nosql", "$gt", "$ne", "operator", "regex", "authentication"],
+        "min_length": 150,
+    },
+    {
+        "instruction": "Explain out-of-band SQL injection and how to exfiltrate data via DNS.",
+        "category": "sqli",
+        "expected_keywords": ["oob", "dns", "xp_dirtree", "utl_http", "exfil", "collaborator", "blind"],
+        "min_length": 150,
+    },
+    {
+        "instruction": "Describe second-order SQL injection and give a concrete example of exploitation.",
+        "category": "sqli",
+        "expected_keywords": ["second-order", "stored", "retrieve", "parameteriz", "register", "phase"],
+        "min_length": 150,
+    },
+    {
+        "instruction": "How do you perform GraphQL injection and abuse batching to bypass rate limits?",
+        "category": "sqli",
+        "expected_keywords": ["graphql", "introspect", "mutation", "batch", "rate limit", "alias"],
+        "min_length": 150,
+    },
+    # ── Injection (SSTI / XXE / SSRF / Deser) ──────────────────
+    {
+        "instruction": "How do you identify and exploit SSTI in a Jinja2 template for RCE?",
+        "category": "injection",
+        "expected_keywords": ["ssti", "jinja2", "mro", "subclass", "popen", "rce", "template"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "Describe blind XXE out-of-band exfiltration using an external DTD.",
+        "category": "injection",
+        "expected_keywords": ["xxe", "dtd", "external", "oob", "entity", "exfil", "dns"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "How do you exploit SSRF to steal AWS IAM credentials via IMDSv1?",
+        "category": "injection",
+        "expected_keywords": ["ssrf", "imds", "169.254.169.254", "iam", "credentials", "aws", "role"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "Explain Java deserialization attacks and how gadget chains achieve RCE.",
+        "category": "injection",
+        "expected_keywords": ["deserializ", "gadget", "ysoserial", "commonscollections", "readobject", "rce"],
+        "min_length": 200,
+    },
+    # ── Auth Attacks ───────────────────────────────────────────
+    {
+        "instruction": "How do you exploit JWT algorithm confusion (RS256 to HS256) for privilege escalation?",
+        "category": "auth",
+        "expected_keywords": ["jwt", "rs256", "hs256", "public key", "algorithm", "confusion", "forge"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "What OAuth 2.0 vulnerabilities lead to account takeover and how do you test them?",
+        "category": "auth",
+        "expected_keywords": ["oauth", "redirect_uri", "state", "csrf", "code", "interception", "takeover"],
+        "min_length": 150,
+    },
+    {
+        "instruction": "How does XML Signature Wrapping (XSW) bypass SAML authentication?",
+        "category": "auth",
+        "expected_keywords": ["saml", "xsw", "signature", "wrapping", "unsigned", "nameid", "assertion"],
+        "min_length": 150,
+    },
+    # ── Network / Protocol ────────────────────────────────────
+    {
+        "instruction": "Explain CL.TE HTTP request smuggling and how to exploit it to capture victim requests.",
+        "category": "network",
+        "expected_keywords": ["smuggling", "cl.te", "content-length", "chunked", "transfer-encoding", "victim", "poison"],
+        "min_length": 200,
+    },
+    {
+        "instruction": "How do you exploit race conditions to bypass one-time coupon code limits?",
+        "category": "network",
+        "expected_keywords": ["race", "condition", "parallel", "simultaneous", "limit", "bypass", "asyncio"],
+        "min_length": 150,
+    },
+    {
+        "instruction": "What is Cross-Site WebSocket Hijacking (CSWSH) and how do you exploit it?",
+        "category": "network",
+        "expected_keywords": ["websocket", "hijack", "origin", "csrf", "cookie", "cswsh", "cross-site"],
+        "min_length": 150,
+    },
+    # ── Attack Chains ──────────────────────────────────────────
+    {
+        "instruction": "Walk through the complete attack chain from SSRF discovery to AWS EC2 command execution.",
+        "category": "attack_chain",
+        "expected_keywords": ["ssrf", "imds", "iam", "credentials", "aws", "ssm", "exec", "rce"],
+        "min_length": 300,
+    },
+    {
+        "instruction": "Describe how stored XSS can be chained with CSRF token theft for admin account takeover.",
+        "category": "attack_chain",
+        "expected_keywords": ["stored", "xss", "csrf", "token", "admin", "takeover", "fetch", "same-origin"],
+        "min_length": 300,
+    },
+    {
+        "instruction": "How do you pivot from XXE to Kubernetes cluster compromise via the service account token?",
+        "category": "attack_chain",
+        "expected_keywords": ["xxe", "ssrf", "kubernetes", "service account", "token", "secret", "privileged"],
+        "min_length": 300,
     },
 ]
 

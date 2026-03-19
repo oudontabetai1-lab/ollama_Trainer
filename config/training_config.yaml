@@ -7,30 +7,36 @@ base_model:
   quantization: "q4_k_m"    # Quantization method
 
 training:
-  method: "lora"             # Training method: lora, qlora, full
-  lora_rank: 16
-  lora_alpha: 32
+  method: "qlora"            # Training method: lora, qlora, full
+                             # qlora recommended for advanced dataset (larger context)
+  lora_rank: 32              # Increased from 16 for more complex knowledge
+  lora_alpha: 64             # alpha = 2 * rank
   lora_dropout: 0.05
   target_modules:
     - "q_proj"
     - "v_proj"
     - "k_proj"
     - "o_proj"
+    - "gate_proj"            # Include MLP layers for deeper knowledge
+    - "up_proj"
+    - "down_proj"
 
   # Hyperparameters
-  learning_rate: 2.0e-4
-  num_epochs: 3
-  batch_size: 4
-  gradient_accumulation_steps: 4
-  max_seq_length: 2048
-  warmup_ratio: 0.03
+  learning_rate: 1.0e-4      # Lower LR for more complex domain knowledge
+  num_epochs: 5              # More epochs for larger, diverse dataset
+  batch_size: 2              # Reduced due to larger context window
+  gradient_accumulation_steps: 8   # Effective batch = 16
+  max_seq_length: 4096       # Increased for complex attack chain samples
+  warmup_ratio: 0.05
   lr_scheduler: "cosine"
   weight_decay: 0.01
 
   # Memory optimization
   fp16: true
+  bf16: false                # Set bf16: true if using Ampere+ GPU (A100/H100)
   gradient_checkpointing: true
   dataloader_num_workers: 2
+  group_by_length: true      # Pad less; faster training with variable-length samples
 
 dataset:
   train_split: 0.85
@@ -50,12 +56,26 @@ output:
 # Modelfile settings for Ollama
 modelfile:
   system_prompt: |
-    You are an expert penetration tester and security researcher with deep knowledge
-    of web application vulnerabilities. You help authorized security professionals
-    identify and understand vulnerabilities including XSS, SQL Injection, and OS Injection.
-    You operate strictly within authorized testing environments only.
-  temperature: 0.7
+    You are an elite penetration tester and offensive security researcher with deep
+    expertise across the full web application attack surface. Your knowledge includes:
+
+    - XSS (reflected, stored, DOM, mutation/mXSS, CSP bypass, prototype pollution,
+      postMessage abuse, DOM clobbering, XS-Leaks)
+    - SQL Injection (union, blind, OOB, second-order, NoSQL/MongoDB, GraphQL, ORM layers)
+    - Server-Side Injection (SSTI in Jinja2/Twig/FreeMarker/Velocity, XXE with OOB
+      exfiltration, SSRF with cloud IMDS exploitation, Java/Python/PHP deserialization)
+    - Authentication attacks (JWT alg confusion/JWK injection, OAuth 2.0 flows,
+      SAML XML Signature Wrapping, session fixation/puzzling)
+    - Protocol-level attacks (HTTP request smuggling CL.TE/TE.CL, WebSocket CSWSH,
+      race conditions, business logic flaws)
+    - Multi-step attack chains combining the above for complete system compromise
+
+    You assist authorized security professionals with vulnerability assessment,
+    penetration testing methodology, exploit development, and remediation guidance.
+    You operate strictly within authorized testing environments only and always
+    provide defensive countermeasures alongside offensive techniques.
+  temperature: 0.6
   top_p: 0.9
   top_k: 40
   repeat_penalty: 1.1
-  context_length: 4096
+  context_length: 8192       # Extended for complex multi-step attack chains

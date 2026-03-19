@@ -1,39 +1,54 @@
-# Dataset Configuration for Pentest LLM Training
+# Dataset Configuration for Advanced Pentest LLM Training
 
 categories:
+  # ── Web Client-side ──────────────────────────────────────────
   xss:
-    weight: 0.35
+    weight: 0.15
     subtypes:
       - reflected_xss
       - stored_xss
       - dom_xss
       - blind_xss
-      - mutation_xss
+      - mutation_xss        # mXSS / DOMPurify bypasses
+      - csp_bypass          # Content-Security-Policy bypass techniques
+      - prototype_pollution # Prototype pollution → XSS gadget chains
+      - postmessage_abuse   # Cross-origin postMessage exploitation
+      - dom_clobbering      # HTML element ID → global variable override
+      - xs_leaks            # Cross-site timing / side-channel leaks
     contexts:
       - html_body
       - html_attribute
       - javascript_context
       - url_parameter
       - json_response
+      - svg_context
+      - mathml_context
 
+  # ── SQL / NoSQL / Graph ──────────────────────────────────────
   sqli:
-    weight: 0.35
+    weight: 0.15
     subtypes:
       - error_based
       - union_based
       - blind_boolean
       - blind_time
-      - out_of_band
-      - second_order
+      - out_of_band           # DNS/HTTP exfil via xp_dirtree, UTL_HTTP, etc.
+      - second_order          # Stored then executed in separate query
+      - nosql_injection       # MongoDB $gt/$ne/$where operator injection
+      - graphql_injection     # GraphQL arg injection, batching, introspection
+      - orm_injection         # Django extra(), Hibernate HQL, SQLAlchemy text()
     databases:
       - mysql
       - postgresql
       - mssql
       - sqlite
       - oracle
+      - mongodb
+      - redis
 
+  # ── OS / System Injection ────────────────────────────────────
   osi:
-    weight: 0.30
+    weight: 0.10
     subtypes:
       - command_injection
       - argument_injection
@@ -44,6 +59,46 @@ categories:
     platforms:
       - linux
       - windows
+
+  # ── Server-side Injection ────────────────────────────────────
+  injection:
+    weight: 0.15
+    subtypes:
+      - ssti                 # Jinja2/Twig/FreeMarker/Velocity/Smarty → RCE
+      - xxe                  # In-band, OOB, error-based, SVG/SAML vectors
+      - ssrf                 # Internal network, cloud IMDS, Gopher protocol
+      - deserialization      # Java gadget chains, Python pickle, PHP unserialize
+
+  # ── Authentication & Authorization ──────────────────────────
+  auth:
+    weight: 0.20
+    subtypes:
+      - jwt_attacks          # alg=none, RS256→HS256, JWK inject, kid SQLi
+      - oauth_attacks        # Open redirect, CSRF, implicit flow, PKCE bypass
+      - saml_attacks         # XSW 1-8, XML comment injection, signature excl.
+      - session_attacks      # Session fixation, puzzling, SameSite bypass
+      - idor                 # Insecure Direct Object Reference patterns
+      - mass_assignment      # Unprotected parameter binding vulnerabilities
+
+  # ── Network & Protocol ───────────────────────────────────────
+  network:
+    weight: 0.10
+    subtypes:
+      - http_smuggling       # CL.TE, TE.CL, TE.TE, H2 downgrade
+      - race_conditions      # Limit bypass, double-spend, TOCTOU
+      - websocket_attacks    # CSWSH, injection, auth bypass, replay
+      - business_logic       # Price manipulation, workflow bypass, IDOR chains
+
+  # ── Multi-step Attack Chains ─────────────────────────────────
+  attack_chain:
+    weight: 0.15
+    subtypes:
+      - ssrf_to_aws_rce      # SSRF → IMDSv1 → IAM creds → EC2 SSM RCE
+      - xss_csrf_ato         # Stored XSS → CSRF token theft → account takeover
+      - sqli_to_rce          # SQLi → FILE WRITE → webshell → reverse shell
+      - xxe_ssrf_k8s         # XXE → k8s service account → cluster compromise
+      - proto_poll_xss       # Prototype pollution → DOM gadget → XSS
+      - deser_privesc        # Deserialization → RCE → local privilege escalation
 
 # Dataset format: instruction-following (Alpaca-style)
 format: "alpaca"

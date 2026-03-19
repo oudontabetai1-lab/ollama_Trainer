@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """
 Synthetic dataset generator for penetration testing LLM fine-tuning.
-Generates instruction-following datasets covering XSS, SQLi, and OS Injection.
+Generates instruction-following datasets covering:
+  - XSS (reflected, stored, DOM, blind, mutation, CSP bypass, prototype pollution,
+          postMessage, DOM clobbering, XS-Leaks)
+  - SQL Injection (union, error, blind, time, OOB, NoSQL, GraphQL, ORM, second-order)
+  - OS Injection, Path Traversal, LDAP/XML/Header Injection
+  - SSTI, XXE, SSRF (including cloud IMDS), Deserialization (Java/Python/PHP/Node)
+  - JWT, OAuth 2.0, SAML, Session attacks
+  - HTTP Request Smuggling, WebSocket, Race Conditions, Business Logic
+  - Multi-step attack chains (SSRF→AWS, XSS→CSRF→ATO, SQLi→RCE, XXE→K8s)
 
 DISCLAIMER: This tool is intended for authorized security research and education only.
 """
@@ -655,15 +663,48 @@ def build_chatml_format(sample: Sample) -> dict:
     }
 
 
+def _load_advanced_samples() -> list:
+    """Import advanced module samples (lazy import to keep legacy compat)."""
+    advanced: list = []
+    import importlib.util, sys
+    here = Path(__file__).parent
+
+    modules = [
+        ("advanced_xss",            "ADVANCED_XSS_SAMPLES"),
+        ("advanced_sqli",           "ADVANCED_SQLI_SAMPLES"),
+        ("advanced_injection",      "ADVANCED_INJECTION_SAMPLES"),
+        ("auth_attacks",            "AUTH_ATTACK_SAMPLES"),
+        ("attack_chains",           "ATTACK_CHAIN_SAMPLES"),
+        ("network_protocol_attacks","NETWORK_PROTOCOL_SAMPLES"),
+    ]
+
+    for mod_name, attr in modules:
+        spec = importlib.util.spec_from_file_location(
+            mod_name, here / f"{mod_name}.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        # Expose Sample dataclass so child modules can import from us
+        mod.__dict__["Sample"] = Sample
+        spec.loader.exec_module(mod)
+        samples = getattr(mod, attr, [])
+        advanced.extend(samples)
+        print(f"[+] Loaded {len(samples):3d} samples from {mod_name}")
+
+    return advanced
+
+
 def generate_dataset(
     format: str = "alpaca",
     output_path: Optional[str] = None,
     seed: int = 42,
+    advanced: bool = True,
 ) -> list[dict]:
     """Generate the full dataset and optionally save to file."""
     random.seed(seed)
 
     all_samples = XSS_SAMPLES + SQLI_SAMPLES + OSI_SAMPLES
+    if advanced:
+        all_samples += _load_advanced_samples()
     random.shuffle(all_samples)
 
     if format == "alpaca":
@@ -731,6 +772,11 @@ def main():
         help="Split into train/val/test sets",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--no-advanced",
+        action="store_true",
+        help="Skip advanced module samples (use only base samples)",
+    )
     args = parser.parse_args()
 
     print("[*] Generating penetration testing dataset...")
@@ -738,6 +784,7 @@ def main():
         format=args.format,
         output_path=args.output,
         seed=args.seed,
+        advanced=not args.no_advanced,
     )
 
     print(f"\n[+] Total samples: {len(dataset)}")

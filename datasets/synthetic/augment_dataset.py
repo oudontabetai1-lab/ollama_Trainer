@@ -109,6 +109,22 @@ INSTRUCTION_PARAPHRASES = {
         "Illustrate",
         "Give a practical example of",
     ],
+    "describe": [
+        "Explain",
+        "Detail",
+        "Walk through",
+        "Give an in-depth overview of",
+    ],
+    "walk through": [
+        "Explain step by step",
+        "Detail the process of",
+        "Describe the methodology for",
+    ],
+    "what are": [
+        "Can you explain",
+        "Describe",
+        "Provide an overview of",
+    ],
 }
 
 
@@ -174,6 +190,45 @@ def augment_dataset(
                         new_item["output"] = output_text + variants_note
                         new_item["metadata"] = {**item.get("metadata", {}), "augmented": "evasion"}
                         augmented.append(new_item)
+
+            elif category == "sqli":
+                code_blocks = re.findall(r"```(?:sql|bash)?\n(.+?)```", output_text, re.DOTALL)
+                for block in code_blocks[:1]:
+                    payloads = [
+                        line.strip()
+                        for line in block.splitlines()
+                        if any(kw in line.upper() for kw in ("UNION", "SELECT", "SLEEP", "WAITFOR"))
+                    ]
+                    if payloads:
+                        variants_note = "\n### WAF Evasion Variants\n```sql\n"
+                        for p in payloads[:2]:
+                            for v in generate_sqli_evasion_variants(p)[1:3]:
+                                variants_note += f"{v}\n"
+                        variants_note += "```\n"
+                        new_item = item.copy()
+                        new_item["output"] = output_text + variants_note
+                        new_item["metadata"] = {**item.get("metadata", {}), "augmented": "evasion"}
+                        augmented.append(new_item)
+
+            elif category == "injection":
+                subcategory = item.get("metadata", {}).get("subcategory", "")
+                if subcategory == "ssti":
+                    # Add platform variants note
+                    variants_note = (
+                        "\n### Quick Engine Detection Reference\n"
+                        "| Payload | Result | Engine |\n"
+                        "|---------|--------|--------|\n"
+                        "| `{{7*7}}` | `49` | Jinja2, Twig |\n"
+                        "| `${7*7}` | `49` | FreeMarker, Thymeleaf |\n"
+                        "| `<%= 7*7 %>` | `49` | ERB (Ruby) |\n"
+                        "| `#{7*7}` | `49` | Ruby Slim |\n"
+                        "| `{{7*'7'}}` | `7777777` | Jinja2 |\n"
+                        "| `{{7*'7'}}` | `49` | Twig |\n"
+                    )
+                    new_item = item.copy()
+                    new_item["output"] = output_text + variants_note
+                    new_item["metadata"] = {**item.get("metadata", {}), "augmented": "ssti_reference"}
+                    augmented.append(new_item)
 
     print(f"[+] Original: {len(dataset)} → Augmented: {len(augmented)} samples")
 
