@@ -276,7 +276,7 @@ def evaluate_model(
     prompts = list(EVAL_PROMPTS)
 
     if test_data_path and Path(test_data_path).exists():
-        with open(test_data_path) as f:
+        with open(test_data_path, encoding="utf-8") as f:
             for line in f:
                 item = json.loads(line.strip())
                 # Convert training sample to eval format
@@ -376,7 +376,7 @@ def evaluate_model(
 
     # Save results
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
     log.info(f"[+] Results saved to {output_path}")
 

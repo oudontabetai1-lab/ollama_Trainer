@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 
 def load_config(config_path: str) -> dict:
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -42,11 +42,13 @@ def load_dataset(data_path: str, format: str = "alpaca"):
 
     records = []
     if path.suffix == ".jsonl":
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
-                records.append(json.loads(line.strip()))
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
     else:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             records = json.load(f)
 
     log.info(f"Loaded {len(records)} records from {data_path}")

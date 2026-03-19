@@ -84,7 +84,7 @@ def _get_base_model_id(adapter_dir: str) -> str:
 
     config_path = Path(adapter_dir) / "adapter_config.json"
     if config_path.exists():
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = json.load(f)
         return cfg.get("base_model_name_or_path", "")
     raise ValueError(f"Cannot find adapter_config.json in {adapter_dir}")
@@ -163,7 +163,7 @@ def create_modelfile(
     )
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
 
     log.info(f"[+] Modelfile saved to {output_path}")
@@ -230,7 +230,7 @@ def main():
     )
     args = parser.parse_args()
 
-    with open(args.config) as f:
+    with open(args.config, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     quantization = config["base_model"]["quantization"]
