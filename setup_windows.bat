@@ -9,6 +9,10 @@
 setlocal
 cd /d "%~dp0"
 
+:: Force UTF-8 for Python (fixes TRL cp932 UnicodeDecodeError on Japanese Windows)
+set PYTHONUTF8=1
+set PYTHONIOENCODING=utf-8
+
 title Pentest LLM - Setup
 
 echo.
