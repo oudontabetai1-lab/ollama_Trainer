@@ -10,6 +10,11 @@ Generates instruction-following datasets covering:
   - JWT, OAuth 2.0, SAML, Session attacks
   - HTTP Request Smuggling, WebSocket, Race Conditions, Business Logic
   - Multi-step attack chains (SSRF→AWS, XSS→CSRF→ATO, SQLi→RCE, XXE→K8s)
+  - WAF/Filter Evasion (encoding chains, HPP, Unicode normalization, MIME confusion,
+                         chunked encoding bypass, polyglot payloads)
+  - API Attacks (mass assignment, GraphQL IDOR, verb tampering, JWT confusion,
+                  rate-limit bypass)
+  - Cloud Attacks (AWS IMDSv1/v2 via SSRF, GCP metadata, S3 misconfig, Lambda exfil)
 
 DISCLAIMER: This tool is intended for authorized security research and education only.
 """
@@ -676,6 +681,9 @@ def _load_advanced_samples() -> list:
         ("auth_attacks",            "AUTH_ATTACK_SAMPLES"),
         ("attack_chains",           "ATTACK_CHAIN_SAMPLES"),
         ("network_protocol_attacks","NETWORK_PROTOCOL_SAMPLES"),
+        ("advanced_evasion",        "ADVANCED_EVASION_SAMPLES"),
+        ("api_attacks",             "API_ATTACK_SAMPLES"),
+        ("cloud_attacks",           "CLOUD_ATTACK_SAMPLES"),
     ]
 
     for mod_name, attr in modules:
